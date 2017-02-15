@@ -1,0 +1,5 @@
+<factorypath>
+    <factorypathentry kind="WKSPJAR" id="/341298_Annotation/processor.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="PLUGIN" id="org.eclipse.jdt.apt.pluggable.tests" enabled="false" runInBatchMode="false"/>
+    <factorypathentry kind="PLUGIN" id="org.eclipse.jdt.apt.tests" enabled="false" runInBatchMode="false"/>
+</factorypath>
