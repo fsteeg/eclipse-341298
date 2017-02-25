@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,7 @@ import javax.tools.ToolProvider;
 
 @SupportedAnnotationTypes("com.test.Annotation")
 public class Processor extends AbstractProcessor {
+
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment rndEnv) {
 		Messager log = processingEnv.getMessager();
 		if (!rndEnv.processingOver()) {
@@ -33,8 +35,13 @@ public class Processor extends AbstractProcessor {
 				try {
 					JavaFileObject sourceFile = writeSourceFile();
 					log.printMessage(Diagnostic.Kind.NOTE, "Source: " + sourceFile.getName());
-					log.printMessage(Diagnostic.Kind.NOTE, "Options: " + processingEnv.getOptions().toString());
-					boolean success = compile(sourceFile, processingEnv.getOptions());
+					String javacClasspath = getJavacOption("-classpath");
+					HashMap<String, String> options = new HashMap<>(processingEnv.getOptions());
+					if (!options.containsKey("-classpath") && javacClasspath != null) {
+						options.put("-classpath", javacClasspath);
+					}
+					log.printMessage(Diagnostic.Kind.NOTE, "Options: " + options);
+					boolean success = compile(sourceFile, options);
 					log.printMessage(Diagnostic.Kind.NOTE, "Compiled: " + success);
 				} catch (IOException e) {
 					log.printMessage(Diagnostic.Kind.ERROR, e.getMessage());
@@ -64,6 +71,19 @@ public class Processor extends AbstractProcessor {
 		Boolean success = compiler.getTask(null, fileManager, null, options, null, objects).call();
 		fileManager.close();
 		return success;
+	}
+
+	private String getJavacOption(String name) {
+		try {
+			Class<?> optionsClass = Class.forName("com.sun.tools.javac.util.Options");
+			Class<?> contextClass = Class.forName("com.sun.tools.javac.util.Context");
+			Class<?> environmentClass = Class.forName("com.sun.tools.javac.processing.JavacProcessingEnvironment");
+			Object optionsObject = optionsClass.getMethod("instance", contextClass).invoke(null,
+					environmentClass.getMethod("getContext").invoke(processingEnv));
+			return (String) optionsClass.getMethod("get", String.class).invoke(optionsObject, name);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	@Override

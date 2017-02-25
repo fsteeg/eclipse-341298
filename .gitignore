@@ -1,3 +1,5 @@
 .DS_Store
 bin
 .apt_generated
+*.class
+341298_Annotation/com
