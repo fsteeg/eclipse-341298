@@ -1,5 +1,7 @@
 package com.test;
 
+import static java.util.stream.Collectors.toList;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -8,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -35,11 +36,7 @@ public class Processor extends AbstractProcessor {
 				try {
 					JavaFileObject sourceFile = writeSourceFile();
 					log.printMessage(Diagnostic.Kind.NOTE, "Source: " + sourceFile.getName());
-					String javacClasspath = getJavacOption("-classpath");
 					HashMap<String, String> options = new HashMap<>(processingEnv.getOptions());
-					if (!options.containsKey("-classpath") && javacClasspath != null) {
-						options.put("-classpath", javacClasspath);
-					}
 					log.printMessage(Diagnostic.Kind.NOTE, "Options: " + options);
 					boolean success = compile(sourceFile, options);
 					log.printMessage(Diagnostic.Kind.NOTE, "Compiled: " + success);
@@ -56,7 +53,8 @@ public class Processor extends AbstractProcessor {
 		JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile("com.test.Test");
 		PrintWriter pw = new PrintWriter(sourceFile.openOutputStream());
 		pw.println("package com.test;");
-		pw.write("class Test { Annotated annotated() { return null; } }");
+		pw.println("import com.test.Processor; @SuppressWarnings(\"unused\")"); // classpath dependency
+		pw.write("class Test { Annotated annotated() { return null; } }"); // sourcepath dependency
 		pw.close();
 		return sourceFile;
 	}
@@ -65,25 +63,12 @@ public class Processor extends AbstractProcessor {
 		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 		StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
 		List<String> options = opts.entrySet().stream().filter((e) -> !e.getKey().equals("phase"))
-				.flatMap((e) -> Arrays.asList(e.getKey(), e.getValue()).stream()).collect(Collectors.toList());
+				.flatMap((e) -> Arrays.asList("-" + e.getKey(), e.getValue()).stream()).collect(toList());
 		Iterable<? extends JavaFileObject> objects = fileManager
 				.getJavaFileObjectsFromFiles(Arrays.asList(new File(sourceFile.toUri())));
 		Boolean success = compiler.getTask(null, fileManager, null, options, null, objects).call();
 		fileManager.close();
 		return success;
-	}
-
-	private String getJavacOption(String name) {
-		try {
-			Class<?> optionsClass = Class.forName("com.sun.tools.javac.util.Options");
-			Class<?> contextClass = Class.forName("com.sun.tools.javac.util.Context");
-			Class<?> environmentClass = Class.forName("com.sun.tools.javac.processing.JavacProcessingEnvironment");
-			Object optionsObject = optionsClass.getMethod("instance", contextClass).invoke(null,
-					environmentClass.getMethod("getContext").invoke(processingEnv));
-			return (String) optionsClass.getMethod("get", String.class).invoke(optionsObject, name);
-		} catch (Exception e) {
-			return null;
-		}
 	}
 
 	@Override
